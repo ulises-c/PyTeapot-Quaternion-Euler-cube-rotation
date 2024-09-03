@@ -9,13 +9,18 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 from pygame.locals import *
 
-useSerial = False # set true for using serial for data transmission, false for wifi
+# Data transmission
+useSerial = False # set true for using serial for data transmission
+useCSV = False # set true for reading a CSV file for data transmission
+useWifi = False # set true for reading via wifi for data transmission
+
+# Data format
 useQuat = False   # set true for using quaternions, false for using y,p,r angles
 
 if(useSerial):
     import serial
     ser = serial.Serial('/dev/ttyUSB0', 38400)
-else:
+elif(useWifi):
     import socket
 
     UDP_IP = "0.0.0.0"
@@ -23,6 +28,12 @@ else:
     sock = socket.socket(socket.AF_INET, # Internet
                          socket.SOCK_DGRAM) # UDP
     sock.bind((UDP_IP, UDP_PORT))
+elif(useCSV):
+    import numpy, csv, pandas # unsure which to use currently
+    pass
+else:
+    print("\nError, data transmission type missing.\nSelect the data transmission type [serial, csv, wifi].\nExiting program.")
+    quit()
 
 def main():
     video_flags = OPENGL | DOUBLEBUF
@@ -106,7 +117,15 @@ def read_data():
         data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
         line = data.decode('UTF-8').replace('\n', '')
         print(line)
-                
+
+    """ String formats
+    - Both quaternions and Euler angles
+    w0.09wa-0.12ab-0.09bc0.98cy168.8099yp12.7914pr-11.8401r
+    - Quaternions only
+    w0.09wa-0.12ab-0.09bc0.98c
+    - Euler angles only
+    y168.8099yp12.7914pr-11.8401r
+    """
     if(useQuat):
         w = float(line.split('w')[1])
         nx = float(line.split('a')[1])
