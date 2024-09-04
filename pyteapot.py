@@ -15,14 +15,14 @@ useCSV = False # set true for reading a CSV file for data transmission
 useWifi = False # set true for reading via wifi for data transmission
 
 # Data format
-useQuat = False   # set true for using quaternions, false for using y,p,r angles
+useQuat = False   # set true for using quaternions
+useEuler = False  # set true for using Euler angles (yaw, pitch, roll)
 
 if(useSerial):
     import serial
     ser = serial.Serial('/dev/ttyUSB0', 38400)
 elif(useWifi):
     import socket
-
     UDP_IP = "0.0.0.0"
     UDP_PORT = 5005
     sock = socket.socket(socket.AF_INET, # Internet
@@ -30,6 +30,7 @@ elif(useWifi):
     sock.bind((UDP_IP, UDP_PORT))
 elif(useCSV):
     import numpy, csv, pandas # unsure which to use currently
+    csv_file = "test_data.csv"
     pass
 else:
     print("\nError, data transmission type missing.\nSelect the data transmission type [serial, csv, wifi].\nExiting program.")
@@ -50,12 +51,10 @@ def main():
             break
         if(useQuat):
             [w, nx, ny, nz] = read_data()
-        else:
-            [yaw, pitch, roll] = read_data()
-        if(useQuat):
             draw(w, nx, ny, nz)
-        else:
-            draw(1, yaw, pitch, roll)
+        elif(useEuler):
+            [yaw, pitch, roll] = read_data()
+            draw(1, yaw, pitch, roll)     
         pygame.display.flip()
         frames += 1
     print("fps: %d" % ((frames*1000)/(pygame.time.get_ticks()-ticks)))
@@ -96,7 +95,7 @@ def cleanSerialBegin():
             nz = float(line.split('c')[1])
         except Exception:
             pass
-    else:
+    elif(useEuler):
         try:
             line = ser.readline().decode('UTF-8').replace('\n', '')
             yaw = float(line.split('y')[1])
@@ -106,16 +105,54 @@ def cleanSerialBegin():
             pass
 
 
+def readCSV():
+    quat_headers = ["Quat_W", "Quat_X", "Quat_Y", "Quat_Z"] # Header contains this, but is not exactly this
+    euler_headers = ["Euler_Yaw", "Euler_Pitch", "Euler_Roll"]
+    try:
+        with open(csv_file, mode='r') as file:
+            csv_reader = csv.DictReader(file)
+            last_row = None
+            for row in csv_reader:
+                last_row = row
+
+            if last_row is None:
+                raise ValueError("CSV file is empty")
+
+            if(useQuat):
+                w = last_row.get(quat_headers[0])
+                x = last_row.get(quat_headers[1])
+                y = last_row.get(quat_headers[2])
+                z = last_row.get(quat_headers[3])
+                if None in [w, x, y, z]:
+                    raise ValueError("Required quaternion data not found in CSV")
+                return f"w{w}wa{x}ab{y}bc{z}c"  # format for quaternion
+
+            elif(useEuler):
+                yaw = last_row.get(euler_headers[0])
+                pitch = last_row.get(euler_headers[1])
+                roll = last_row.get(euler_headers[2])
+                if None in [yaw, pitch, roll]:
+                    raise ValueError("Required Euler data not found in CSV")
+                return f"y{yaw}yp{pitch}pr{roll}r"  # format for Euler
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+
 def read_data():
     if(useSerial):
         ser.reset_input_buffer()
         cleanSerialBegin()
         line = ser.readline().decode('UTF-8').replace('\n', '')
         print(line)
-    else:
+    elif(useWifi):
         # Waiting for data from udp port 5005
         data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
         line = data.decode('UTF-8').replace('\n', '')
+        print(line)
+    elif(useCSV):
+        line = readCSV()
         print(line)
 
     """ String formats
@@ -132,7 +169,7 @@ def read_data():
         ny = float(line.split('b')[1])
         nz = float(line.split('c')[1])
         return [w, nx, ny, nz]
-    else:
+    elif(useEuler):
         yaw = float(line.split('y')[1])
         pitch = float(line.split('p')[1])
         roll = float(line.split('r')[1])
@@ -152,7 +189,7 @@ def draw(w, nx, ny, nz):
         [yaw, pitch , roll] = quat_to_ypr([w, nx, ny, nz])
         drawText((-2.6, -1.8, 2), "Yaw: %f, Pitch: %f, Roll: %f" %(yaw, pitch, roll), 16)
         glRotatef(2 * math.acos(w) * 180.00/math.pi, -1 * nx, nz, ny)
-    else:
+    elif(useEuler):
         yaw = nx
         pitch = ny
         roll = nz
