@@ -10,13 +10,13 @@ from OpenGL.GLU import *
 from pygame.locals import *
 
 # Data transmission
-useSerial = False # set true for using serial for data transmission
-useCSV = False # set true for reading a CSV file for data transmission
-useWifi = False # set true for reading via wifi for data transmission
+useSerial = False  # set true for using serial for data transmission
+useWifi = False    # set true for reading via wifi for data transmission
+useCSV = True      # set true for reading a CSV file for data transmission
 
 # Data format
-useQuat = False   # set true for using quaternions
-useEuler = False  # set true for using Euler angles (yaw, pitch, roll)
+useQuat = True     # set true for using quaternions (w, x, y, z)
+useEuler = False   # set true for using Euler angles (yaw, pitch, roll)
 
 if(useSerial):
     import serial
@@ -29,7 +29,7 @@ elif(useWifi):
                          socket.SOCK_DGRAM) # UDP
     sock.bind((UDP_IP, UDP_PORT))
 elif(useCSV):
-    import numpy, csv, pandas # unsure which to use currently
+    import csv
     csv_file = "test_data.csv"
     pass
 else:
@@ -106,8 +106,9 @@ def cleanSerialBegin():
 
 
 def readCSV():
-    quat_headers = ["Quat_W", "Quat_X", "Quat_Y", "Quat_Z"] # Header contains this, but is not exactly this
-    euler_headers = ["Euler_Yaw", "Euler_Pitch", "Euler_Roll"]
+    # Header contains the following as a substring, but does not have to be exactly that
+    quat_headers = ["Quat_W", "Quat_X", "Quat_Y", "Quat_Z"] 
+    euler_headers = ["Yaw", "Pitch", "Roll"]
     try:
         with open(csv_file, mode='r') as file:
             csv_reader = csv.DictReader(file)
@@ -250,7 +251,7 @@ def quat_to_ypr(q):
     roll  = math.atan2(2.0 * (q[0] * q[1] + q[2] * q[3]), q[0] * q[0] - q[1] * q[1] - q[2] * q[2] + q[3] * q[3])
     pitch *= 180.0 / math.pi
     yaw   *= 180.0 / math.pi
-    yaw   -= -0.13  # Declination at Chandrapur, Maharashtra is - 0 degress 13 min
+    yaw   -= -9.58  # Declination at Santa Clara, California, USA is - 9 degress 58 min
     roll  *= 180.0 / math.pi
     return [yaw, pitch, roll]
 
