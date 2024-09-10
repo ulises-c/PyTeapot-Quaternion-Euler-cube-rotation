@@ -11,10 +11,14 @@ def generate_random_float(minimum=-5, maximum=5, precision=3):
 def get_timestamp():
     return datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
+def get_time_elapsed(start_time):
+    time_str = f"{(time.time() - start_time):0.4f}"
+    return float(time_str)
+
 print("Starting...")
 
 # File to write data
-filename = 'fake_data.csv'
+filename = 'test_data.csv'
 
 # Headers for the CSV file
 headers = [
@@ -32,7 +36,7 @@ with open(filename, mode='w', newline='') as file:
         # Generate row data
         row = [
             index,
-            time.time() - start_time, # timestamp
+            get_time_elapsed(start_time), # timestamp
             generate_random_float() + 12000, # quat_w
             generate_random_float(), # quat_x
             generate_random_float(), # quat_y

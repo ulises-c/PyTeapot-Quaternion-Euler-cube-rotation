@@ -9,32 +9,6 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 from pygame.locals import *
 
-# Data transmission
-useSerial = False  # set true for using serial for data transmission
-useWifi = False    # set true for reading via wifi for data transmission
-useCSV = True      # set true for reading a CSV file for data transmission
-
-# Data format
-useQuat = True     # set true for using quaternions (w, x, y, z)
-useEuler = False   # set true for using Euler angles (yaw, pitch, roll)
-
-if(useSerial):
-    import serial
-    ser = serial.Serial('/dev/ttyUSB0', 38400)
-elif(useWifi):
-    import socket
-    UDP_IP = "0.0.0.0"
-    UDP_PORT = 5005
-    sock = socket.socket(socket.AF_INET, # Internet
-                         socket.SOCK_DGRAM) # UDP
-    sock.bind((UDP_IP, UDP_PORT))
-elif(useCSV):
-    import csv
-    csv_file = "test_data.csv"
-    pass
-else:
-    print("\nError, data transmission type missing.\nSelect the data transmission type [serial, csv, wifi].\nExiting program.")
-    quit()
 
 def main():
     video_flags = OPENGL | DOUBLEBUF
@@ -105,11 +79,30 @@ def cleanSerialBegin():
             pass
 
 
+def find_headers(csv_file):
+    # Function to find headers containing the substrings based on the mode
+    with open(csv_file, mode='r') as file:
+        reader = csv.DictReader(file)
+        headers = reader.fieldnames
+
+    if(useQuat):
+        substrings = ["Quat_W", "Quat_X", "Quat_Y", "Quat_Z"]
+    elif(useEuler):
+        substrings = ["Yaw", "Pitch", "Roll"]
+    else:
+        return []
+
+    found_headers = []
+    for substring in substrings:
+        for header in headers:
+            if substring in header:
+                found_headers.append(header)
+                break
+    return found_headers
+
 def readCSV():
-    # Header contains the following as a substring, but does not have to be exactly that
-    quat_headers = ["Quat_W", "Quat_X", "Quat_Y", "Quat_Z"] 
-    euler_headers = ["Yaw", "Pitch", "Roll"]
     try:
+        print(f"CSV file: `{csv_file}` | Mode: {"Quat" if useQuat else "Euler"}")
         with open(csv_file, mode='r') as file:
             csv_reader = csv.DictReader(file)
             last_row = None
@@ -120,18 +113,21 @@ def readCSV():
                 raise ValueError("CSV file is empty")
 
             if(useQuat):
-                w = last_row.get(quat_headers[0])
-                x = last_row.get(quat_headers[1])
-                y = last_row.get(quat_headers[2])
-                z = last_row.get(quat_headers[3])
+                w = last_row.get(headers[0]) if len(headers) > 0 else None
+                x = last_row.get(headers[1]) if len(headers) > 1 else None
+                y = last_row.get(headers[2]) if len(headers) > 2 else None
+                z = last_row.get(headers[3]) if len(headers) > 3 else None
+                print(f"W:{w} | X(A):{x} | Y(B):{y} | Z(C):{z}")
+                # print(last_row)
+                # BUG: Currently getting math domain errors when converting Quaternion to Euler Angles
                 if None in [w, x, y, z]:
                     raise ValueError("Required quaternion data not found in CSV")
                 return f"w{w}wa{x}ab{y}bc{z}c"  # format for quaternion
 
             elif(useEuler):
-                yaw = last_row.get(euler_headers[0])
-                pitch = last_row.get(euler_headers[1])
-                roll = last_row.get(euler_headers[2])
+                yaw = last_row.get(headers[0]) if len(headers) > 0 else None
+                pitch = last_row.get(headers[1]) if len(headers) > 1 else None
+                roll = last_row.get(headers[2]) if len(headers) > 2 else None
                 if None in [yaw, pitch, roll]:
                     raise ValueError("Required Euler data not found in CSV")
                 return f"y{yaw}yp{pitch}pr{roll}r"  # format for Euler
@@ -254,6 +250,35 @@ def quat_to_ypr(q):
     yaw   -= -9.58  # Declination at Santa Clara, California, USA is - 9 degress 58 min
     roll  *= 180.0 / math.pi
     return [yaw, pitch, roll]
+
+
+# Data transmission
+useSerial = False  # set true for using serial for data transmission
+useWifi = False    # set true for reading via wifi for data transmission
+useCSV = True      # set true for reading a CSV file for data transmission
+
+# Data format
+useQuat = True     # set true for using quaternions (w, x, y, z)
+useEuler = False   # set true for using Euler angles (yaw, pitch, roll)
+
+if(useSerial):
+    import serial
+    ser = serial.Serial('/dev/ttyUSB0', 38400)
+elif(useWifi):
+    import socket
+    UDP_IP = "0.0.0.0"
+    UDP_PORT = 5005
+    sock = socket.socket(socket.AF_INET, # Internet
+                         socket.SOCK_DGRAM) # UDP
+    sock.bind((UDP_IP, UDP_PORT))
+elif(useCSV):
+    import csv
+    csv_file = "test_data.csv"
+    headers = find_headers(csv_file)
+    pass
+else:
+    print("\nError, data transmission type missing.\nSelect the data transmission type [serial, csv, wifi].\nExiting program.")
+    quit()
 
 
 if __name__ == '__main__':
