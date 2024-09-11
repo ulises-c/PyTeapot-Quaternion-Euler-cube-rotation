@@ -5,12 +5,14 @@ quaternion or yaw, pitch, roll angles received over serial port.
 
 import pygame
 import math
+import time
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from pygame.locals import *
+from typing import List
 
 
-def main():
+def main() -> None:
     video_flags = OPENGL | DOUBLEBUF
     pygame.init()
     screen = pygame.display.set_mode((640, 480), video_flags)
@@ -25,18 +27,19 @@ def main():
             break
         if(useQuat):
             [w, nx, ny, nz] = read_data()
-            draw(w, nx, ny, nz)
+            draw(w, nx, ny, nz, frames)
         elif(useEuler):
             [yaw, pitch, roll] = read_data()
-            draw(1, yaw, pitch, roll)     
+            draw(1, yaw, pitch, roll, frames)     
         pygame.display.flip()
         frames += 1
+        time.sleep(1/60) # 60 Hz
     print("fps: %d" % ((frames*1000)/(pygame.time.get_ticks()-ticks)))
     if(useSerial):
         ser.close()
 
 
-def resizewin(width, height):
+def resizewin(width, height) -> None:
     """
     For resizing window
     """
@@ -50,7 +53,7 @@ def resizewin(width, height):
     glLoadIdentity()
 
 
-def init():
+def init() -> None:
     glShadeModel(GL_SMOOTH)
     glClearColor(0.0, 0.0, 0.0, 0.0)
     glClearDepth(1.0)
@@ -59,7 +62,7 @@ def init():
     glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST)
 
 
-def cleanSerialBegin():
+def cleanSerialBegin() -> None:
     if(useQuat):
         try:
             line = ser.readline().decode('UTF-8').replace('\n', '')
@@ -79,8 +82,8 @@ def cleanSerialBegin():
             pass
 
 
-def find_headers(csv_file):
-    # Function to find headers containing the substrings based on the mode
+def find_headers(csv_file:str) -> List[int]:
+    # Function to find headers containing the substrings based on the mode, returns indices
     print(f"CSV file: `{csv_file}` | Mode: {"Quat" if useQuat else "Euler"}")
     with open(csv_file, mode='r') as file:
         reader = csv.DictReader(file)
@@ -93,51 +96,38 @@ def find_headers(csv_file):
     else:
         return []
 
-    found_headers = []
+    header_indices = []
     for substring in substrings:
-        for header in headers:
-            if substring in header:
-                found_headers.append(header)
+        for i in range(len(headers)):
+            if substring in (headers[i]):
+                print(f"Column #{i}: {substring}")
+                header_indices.append(i)
                 break
-    return found_headers
+    return header_indices
 
-def readCSV():
+def readCSV(delimiter:str=',') -> str:
+    # Grabs last line of data from CSV
+    # TODO: change return to list/tuple to remove line.split() necessity
     try:
         with open(csv_file, mode='r') as file:
-            csv_reader = csv.DictReader(file)
-            last_row = None
-            for row in csv_reader:
-                last_row = row
-
-            if last_row is None:
-                raise ValueError("CSV file is empty")
-
+            lines = file.readlines()
+            print(lines[-1])
             if(useQuat):
-                w = last_row.get(headers[0]) if len(headers) > 0 else None
-                x = last_row.get(headers[1]) if len(headers) > 1 else None
-                y = last_row.get(headers[2]) if len(headers) > 2 else None
-                z = last_row.get(headers[3]) if len(headers) > 3 else None
-                # print(f"W:{w} | X(A):{x} | Y(B):{y} | Z(C):{z}")
-                # print(last_row)
-                # BUG: Currently getting math domain errors when converting Quaternion to Euler Angles
-                if None in [w, x, y, z]:
+                [w, nx, ny, nz] = [float(lines[-1].split(delimiter)[header]) for header in headers]
+                if None in [w, nx, ny, nz]:
                     raise ValueError("Required quaternion data not found in CSV")
-                return f"w{w}wa{x}ab{y}bc{z}c"  # format for quaternion
-
+                return f"w{w}wa{nx}ab{ny}bc{nz}c" # format for quaternion
             elif(useEuler):
-                yaw = last_row.get(headers[0]) if len(headers) > 0 else None
-                pitch = last_row.get(headers[1]) if len(headers) > 1 else None
-                roll = last_row.get(headers[2]) if len(headers) > 2 else None
+                [yaw, pitch, roll] = [float(lines[-1].split(delimiter)[header]) for header in headers]
                 if None in [yaw, pitch, roll]:
-                    raise ValueError("Required Euler data not found in CSV")
-                return f"y{yaw}yp{pitch}pr{roll}r"  # format for Euler
-
+                    raise ValueError("Required Euler angles not found in CSV")
+                return f"y{yaw}yp{pitch}pr{roll}r" # format for quaternion
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
 
 
-def read_data():
+def read_data() -> List[float]:
     if(useSerial):
         ser.reset_input_buffer()
         cleanSerialBegin()
@@ -171,27 +161,27 @@ def read_data():
         return [yaw, pitch, roll]
 
 
-def draw(w, nx, ny, nz):
+def draw(w:float, nx:float, ny:float, nz:float, frames:int) -> None:
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
     glTranslatef(0, 0.0, -7.0)
 
-    drawText((-2.6, 1.8, 2), "PyTeapot", 18)
-    drawText((-2.6, 1.6, 2), "Module to visualize quaternion or Euler angles data", 16)
-    drawText((-2.6, -2, 2), "Press Escape to exit.", 16)
+    drawText((-2.6, 1.8, 2), "PyTeapot", 16)
+    drawText((-2.6, 1.6, 2), "Module to visualize quaternion or Euler angles data", 14)
+    drawText((-2.6, -1.8, 2), f"Frames: {frames}", 14)
+    drawText((-2.6, -2, 2), "Press Escape to exit.", 14)
 
     if(useQuat):
         [yaw, pitch , roll] = quat_to_ypr([w, nx, ny, nz])
-        drawText((-2.6, -1.8, 2), "Yaw: %f, Pitch: %f, Roll: %f" %(yaw, pitch, roll), 16)
         glRotatef(2 * math.acos(w) * 180.00/math.pi, -1 * nx, nz, ny)
     elif(useEuler):
         yaw = nx
         pitch = ny
         roll = nz
-        drawText((-2.6, -1.8, 2), "Yaw: %f, Pitch: %f, Roll: %f" %(yaw, pitch, roll), 16)
         glRotatef(-roll, 0.00, 0.00, 1.00)
         glRotatef(pitch, 1.00, 0.00, 0.00)
         glRotatef(yaw, 0.00, 1.00, 0.00)
+    drawText((-2.6, -1.6, 2), f"Yaw: {yaw}, Pitch: {pitch}, Roll: {roll}", 14)
 
     glBegin(GL_QUADS)
     glColor3f(0.0, 1.0, 0.0)
@@ -232,14 +222,14 @@ def draw(w, nx, ny, nz):
     glEnd()
 
 
-def drawText(position, textString, size):
+def drawText(position, textString, size) -> None:
     font = pygame.font.SysFont("Courier", size, True)
     textSurface = font.render(textString, True, (255, 255, 255, 255), (0, 0, 0, 255))
     textData = pygame.image.tostring(textSurface, "RGBA", True)
     glRasterPos3d(*position)
     glDrawPixels(textSurface.get_width(), textSurface.get_height(), GL_RGBA, GL_UNSIGNED_BYTE, textData)
 
-def quat_to_ypr(q):
+def quat_to_ypr(q) -> List[float]:
     yaw   = math.atan2(2.0 * (q[1] * q[2] + q[0] * q[3]), q[0] * q[0] + q[1] * q[1] - q[2] * q[2] - q[3] * q[3])
     pitch = -math.asin(2.0 * (q[1] * q[3] - q[0] * q[2]))
     roll  = math.atan2(2.0 * (q[0] * q[1] + q[2] * q[3]), q[0] * q[0] - q[1] * q[1] - q[2] * q[2] + q[3] * q[3])
