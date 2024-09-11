@@ -4,7 +4,7 @@ import random
 from datetime import datetime
 
 # Function to generate random float between -5 and 5, with 3 decimal points
-def generate_random_float(minimum=-5, maximum=5, precision=3):
+def generate_random_float(minimum=0, maximum=0.5, precision=2):
     return round(random.uniform(minimum, maximum), precision)
 
 # Function to get current timestamp
@@ -37,7 +37,7 @@ with open(filename, mode='w', newline='') as file:
         row = [
             index,
             get_time_elapsed(start_time), # timestamp
-            generate_random_float() + 12000, # quat_w
+            generate_random_float(), # quat_w
             generate_random_float(), # quat_x
             generate_random_float(), # quat_y
             generate_random_float()  # quat_z

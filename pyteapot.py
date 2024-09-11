@@ -81,6 +81,7 @@ def cleanSerialBegin():
 
 def find_headers(csv_file):
     # Function to find headers containing the substrings based on the mode
+    print(f"CSV file: `{csv_file}` | Mode: {"Quat" if useQuat else "Euler"}")
     with open(csv_file, mode='r') as file:
         reader = csv.DictReader(file)
         headers = reader.fieldnames
@@ -102,7 +103,6 @@ def find_headers(csv_file):
 
 def readCSV():
     try:
-        print(f"CSV file: `{csv_file}` | Mode: {"Quat" if useQuat else "Euler"}")
         with open(csv_file, mode='r') as file:
             csv_reader = csv.DictReader(file)
             last_row = None
@@ -117,7 +117,7 @@ def readCSV():
                 x = last_row.get(headers[1]) if len(headers) > 1 else None
                 y = last_row.get(headers[2]) if len(headers) > 2 else None
                 z = last_row.get(headers[3]) if len(headers) > 3 else None
-                print(f"W:{w} | X(A):{x} | Y(B):{y} | Z(C):{z}")
+                # print(f"W:{w} | X(A):{x} | Y(B):{y} | Z(C):{z}")
                 # print(last_row)
                 # BUG: Currently getting math domain errors when converting Quaternion to Euler Angles
                 if None in [w, x, y, z]:
@@ -142,15 +142,13 @@ def read_data():
         ser.reset_input_buffer()
         cleanSerialBegin()
         line = ser.readline().decode('UTF-8').replace('\n', '')
-        print(line)
     elif(useWifi):
         # Waiting for data from udp port 5005
         data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
         line = data.decode('UTF-8').replace('\n', '')
-        print(line)
     elif(useCSV):
         line = readCSV()
-        print(line)
+    print(line)
 
     """ String formats
     - Both quaternions and Euler angles
